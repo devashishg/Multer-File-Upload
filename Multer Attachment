@@ -1,0 +1,55 @@
+router.post('/upload/:id', uploadAttachment);
+
+var storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        fs.mkdir(`./public/${req.params.id}/`,(err)=>{
+            if(err) {console.log(err);}
+            cb(null, path.join(`./public/${req.params.id}/`));
+        })
+    },
+    filename: function (req, file, cb) {
+        req.fileName = `NAME-${Date.now()}${path.extname(file.originalname)}`;
+        cb(null, req.fileName)
+    }
+})
+
+
+
+function uploadAttachment(req, res, next) {
+    var upload = multer({
+        storage: storage,
+    }).single('fileAttached');
+    upload(req,res,err=>{
+        if(err) {
+            console.error(err);
+            res.status(400).json('something went wrong ')
+        } else {
+            res.status(200).json({file: {...req.file}});
+        }
+    });
+}
+
+
+
+function deleteAttachment(req, res, next) {
+    const body = req.body;
+    storyService.deleteFile(body.storyId, body.fileName).then(
+        data=>{
+            storyService.logComment(body).then(data=>{
+                fs.unlink(`./public/${body.projectName}/${body.fileName}`,(err)=>{
+                    if(err) {
+                        res.status(400).json( {message: 'Error occurred while deleting the file' ,error: err });
+                    } else {
+                        res.status(200).json( { status: 'OK' });
+                    }
+                });
+            }).catch(err => {
+                res.status(400).json( {message: 'Something went wrong while logging deletion for the file' ,error: err });
+            })
+        }, err=>{
+            res.status(400).json( {message: 'Something went wrong while deleting the file' ,error: err });
+        }
+    ).catch(err=>{
+        res.status(400).json( {message: 'Error occurred while deleting the file' ,error: err });
+    })
+}
